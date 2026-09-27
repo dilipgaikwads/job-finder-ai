@@ -65,17 +65,20 @@ Skills: Python, PyTorch, LLM, RAG, PostgreSQL, Docker
     assert r.status_code == 200, r.text
     body = r.json()
     user_id = body["user_id"]
+    token = body["token"]
+    auth = {"Authorization": f"Bearer {token}"}
     assert body["detected_email"] == "jane@example.com"
     assert "python" in body["skills"]
 
     # 2. Confirm prefs (user-supplied, never inferred)
-    r = client.patch(f"/profiles/{user_id}", json={"remote_only": True, "hybrid_ok": True})
+    r = client.patch(f"/profiles/{user_id}", json={"remote_only": True, "hybrid_ok": True}, headers=auth)
     assert r.status_code == 200
 
     # 3. Search
     r = client.post(
         f"/profiles/{user_id}/search",
         json={"targets": [{"adapter": "greenhouse", "employer_slug": "acme"}], "notify": True},
+        headers=auth,
     )
     assert r.status_code == 200, r.text
     result = r.json()
@@ -113,11 +116,14 @@ def test_search_filters_high_risk_jobs():
 
     r = client.post("/resumes", files={"file": ("r.txt", b"Jane Doe\njane@example.com\nSkills: Python", "text/plain")})
     assert r.status_code == 200
-    user_id = r.json()["user_id"]
+    body = r.json()
+    user_id = body["user_id"]
+    auth = {"Authorization": f"Bearer {body['token']}"}
 
     r = client.post(
         f"/profiles/{user_id}/search",
         json={"targets": [{"adapter": "greenhouse", "employer_slug": "scam"}], "notify": True},
+        headers=auth,
     )
     assert r.status_code == 200
     result = r.json()

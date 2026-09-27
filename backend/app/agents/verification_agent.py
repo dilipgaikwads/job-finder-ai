@@ -15,7 +15,7 @@ Explanations are factual and non-defamatory (e.g. "domain does not match" rather
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pydantic import BaseModel
 
@@ -49,7 +49,13 @@ _SCAM_PHRASES: tuple[re.Pattern, ...] = tuple(
         r"\bsend\s+(?:your\s+)?bank\s+(?:details|account)\b",
         r"\bwhats?app\s+me\b",
         r"\btelegram\s+me\b",
-        r"\bearn\s+\$?\d{3,}\s*(?:/|per)\s*(?:day|week)\b",
+        # Guaranteed-earnings claims are only a scam signal when NOT immediately
+        # followed by a legitimate qualifier like "during paid training" or
+        # "on-target earnings (OTE)".  We look for the earnings phrase followed
+        # by <=40 chars of non-qualifier text, then a "no experience" or "start
+        # immediately" style pitch — that co-occurrence is what fraud posts do.
+        r"\bearn\s+\$?\d{3,}\s*(?:/|per)\s*(?:day|week)\b(?!\s+during\s+paid|\s+ote\b)"
+        r".{0,80}(?:no\s+experience|start\s+immediately|guaranteed|from\s+home)",
         r"\bno\s+experience\s+(?:needed|required)\b.*\bhigh\s+pay\b",
         r"\bcrypto(?:currency)?\s+wallet\b",
         r"\bsend\s+(?:your\s+)?social\s+security\b",
@@ -68,6 +74,7 @@ class VerificationAgent(Agent[VerificationAgentInput, VerificationReport]):
         signals.append(self._sig_app_url_matches_employer(ctx.evidence_store, job, risk_flags))
         signals.append(self._sig_app_url_on_known_ats(ctx.evidence_store, job))
         signals.append(self._sig_source_url_matches_employer(ctx.evidence_store, job))
+        signals.append(self._sig_application_url_https(ctx.evidence_store, job, risk_flags))
         signals.append(self._sig_scam_phrases(ctx.evidence_store, job, risk_flags))
         signals.append(self._sig_payment_request(ctx.evidence_store, job, risk_flags))
         signals.append(self._sig_required_fields(ctx.evidence_store, job))
@@ -135,6 +142,26 @@ class VerificationAgent(Agent[VerificationAgentInput, VerificationReport]):
             store,
             "application_url_on_known_ats",
             "Application URL is not on a recognized ATS host.",
+        )
+
+    def _sig_application_url_https(
+        self, store: EvidenceStore, job: Job, risk_flags: list[str]
+    ) -> VerificationSignal:
+        scheme = str(job.application_url).split("://", 1)[0].lower()
+        if scheme == "https":
+            return _pass(
+                store,
+                "application_url_https",
+                "Application URL uses HTTPS.",
+                weight=0.5,
+            )
+        risk_flags.append("application_url_not_https")
+        return _warn(
+            store,
+            "application_url_https",
+            f"Application URL uses '{scheme}://', not HTTPS. Credentials or PII submitted "
+            "through this URL would travel unencrypted.",
+            weight=1.0,
         )
 
     def _sig_source_url_matches_employer(self, store: EvidenceStore, job: Job) -> VerificationSignal:
@@ -289,7 +316,7 @@ def _mk_evidence(store: EvidenceStore, claim: str, status: VerificationStatus) -
     ev = Evidence(
         source_url=None,
         source_type=SourceType.INFERRED_DETERMINISTIC,
-        retrieved_at=datetime.now(timezone.utc),
+        retrieved_at=datetime.now(UTC),
         claim=claim,
         confidence=ConfidenceLevel.HIGH,
         verification_status=status,

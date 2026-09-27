@@ -4,7 +4,7 @@ See docs/EVIDENCE.md for the rules and invariants.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -50,7 +50,7 @@ class Evidence(BaseModel):
     id: str = Field(default_factory=lambda: str(ULID()))
     source_url: HttpUrl | None  # None only when source_type is inferred_deterministic or user_supplied
     source_type: SourceType
-    retrieved_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    retrieved_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     claim: str = Field(min_length=1, max_length=500)
     excerpt: str | None = Field(default=None, max_length=500)
     structured: dict[str, Any] | None = None

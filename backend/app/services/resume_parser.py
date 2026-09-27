@@ -46,19 +46,36 @@ _SKILL_VOCAB: tuple[str, ...] = (
 )
 
 
+# Cap on extracted text length to defend against decompression/expansion attacks
+# (crafted DOCX zip bombs, PDFs with huge text-object counts, etc.). 512 KB of text
+# is ~85k words — far more than any real resume.
+MAX_EXTRACTED_TEXT_BYTES = 512 * 1024
+
+
 def extract_text(filename: str, data: bytes) -> str:
-    """Extract raw text from a resume file. Supports .pdf, .docx, .txt."""
+    """Extract raw text from a resume file. Supports .pdf, .docx, .txt.
+
+    Output is truncated to MAX_EXTRACTED_TEXT_BYTES to prevent decompression-bomb
+    expansion from spilling into downstream regex passes.
+    """
     lower = filename.lower()
     if lower.endswith(".pdf"):
-        return _extract_pdf(data)
-    if lower.endswith(".docx"):
-        return _extract_docx(data)
-    if lower.endswith(".txt"):
+        text = _extract_pdf(data)
+    elif lower.endswith(".docx"):
+        text = _extract_docx(data)
+    elif lower.endswith(".txt"):
         try:
-            return data.decode("utf-8")
+            text = data.decode("utf-8")
         except UnicodeDecodeError:
-            return data.decode("latin-1", errors="replace")
-    raise UnsupportedResumeFormat(f"Unsupported resume format: {filename}")
+            text = data.decode("latin-1", errors="replace")
+    else:
+        raise UnsupportedResumeFormat(f"Unsupported resume format: {filename}")
+    if len(text.encode("utf-8", errors="ignore")) > MAX_EXTRACTED_TEXT_BYTES:
+        # Truncate at a character boundary near the byte cap.
+        text = text.encode("utf-8", errors="ignore")[:MAX_EXTRACTED_TEXT_BYTES].decode(
+            "utf-8", errors="ignore"
+        )
+    return text
 
 
 def _extract_pdf(data: bytes) -> str:
@@ -154,13 +171,17 @@ _EXP_LINE_RE = re.compile(
     re.VERBOSE | re.MULTILINE,
 )
 
-_YEAR_RE = re.compile(r"(19|20)\d{2}")
+# Non-capturing group so findall returns the whole 4-digit year, not just the "19"/"20" prefix.
+_YEAR_RE = re.compile(r"(?:19|20)\d{2}")
+# Recognise "present", "current", "now" etc. as the open-ended end marker.
+_PRESENT_RE = re.compile(r"\b(?:present|current|now|ongoing)\b", re.IGNORECASE)
 
 
 def _extract_experience(text: str) -> list[WorkExperience]:
     """Very conservative: only accept lines that plausibly look like 'Title at Company (2020-2023)'.
 
-    Anything ambiguous → skip and let the parser emit a gap instead of inventing.
+    Anything the parser cannot confidently parse is skipped — the caller emits a gap
+    for the user to fill rather than inventing dates.
     """
     out: list[WorkExperience] = []
     for m in _EXP_LINE_RE.finditer(text):
@@ -168,28 +189,66 @@ def _extract_experience(text: str) -> list[WorkExperience]:
         company = m.group("company").strip()
         dates = m.group("dates") or ""
         years = _YEAR_RE.findall(dates)
-        try:
-            start = date(int(years[0][0] + years[0][1] if isinstance(years[0], tuple) else years[0]), 1, 1) if years else date(2000, 1, 1)
-        except Exception:  # noqa: BLE001
+        if not years:
+            # Can't confidently attribute dates — skip and let the user add later.
             continue
-        end: date | None = None
+        try:
+            start = date(int(years[0]), 1, 1)
+        except ValueError:
+            continue
+        end: date | None
         if len(years) >= 2:
             try:
-                end = date(int(years[1] if isinstance(years[1], str) else years[1][0] + years[1][1]), 12, 31)
-            except Exception:  # noqa: BLE001
-                end = None
+                end = date(int(years[1]), 12, 31)
+            except ValueError:
+                end = date(start.year, 12, 31)
+        elif _PRESENT_RE.search(dates):
+            end = None  # explicitly current
+        else:
+            # Single year with no "present" marker means a bounded one-year stint,
+            # NOT ongoing — otherwise a 2015 role becomes today.
+            end = date(start.year, 12, 31)
         out.append(WorkExperience(company=company, title=title, start=start, end=end))
     return out
 
 
 def _extract_name(text: str) -> str | None:
-    """Grab the first line if it looks like a name (2–4 capitalized tokens, no digits, no @)."""
-    for raw in text.splitlines():
+    """Grab the first plausible-looking name line at the top of a resume.
+
+    Rules: 2–4 tokens, no digits/URLs/emails, each token composed only of Unicode
+    letters plus common name punctuation (apostrophe, hyphen, period). Handles
+    non-Latin scripts (e.g. "山田太郎", "Владимир Иванов", "María García", "O'Brien").
+    """
+    allowed_punct = {"'", "-", ".", "’"}  # ' - . and curly apostrophe
+    for raw in text.splitlines()[:8]:
         line = raw.strip()
-        if not line or "@" in line or any(c.isdigit() for c in line):
+        if not line:
+            continue
+        if "@" in line or "://" in line or any(c.isdigit() for c in line):
             continue
         parts = line.split()
-        if 2 <= len(parts) <= 4 and all(p[:1].isupper() and p.isalpha() for p in parts if p):
+        if not (2 <= len(parts) <= 4):
+            continue
+        ok = True
+        for p in parts:
+            if not p:
+                ok = False
+                break
+            # Every char must be a letter (any script) or an allowed name punctuation mark.
+            if not all(c.isalpha() or c in allowed_punct for c in p):
+                ok = False
+                break
+            first = p[0]
+            # For ASCII first letters (Latin scripts), require uppercase to avoid
+            # accepting sentence fragments like "Senior Engineer at Acme". For
+            # non-ASCII scripts (Chinese/Japanese/Korean/Arabic etc.), the concept
+            # of case does not apply, so any letter is fine.
+            if first.isascii() and not first.isupper():
+                ok = False
+                break
+            if not first.isalpha():
+                ok = False
+                break
+        if ok:
             return line
-        break
     return None

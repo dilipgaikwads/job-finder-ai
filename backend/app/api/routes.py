@@ -1,10 +1,17 @@
-"""HTTP routes: resume upload, discovery + match + notify pipeline."""
+"""HTTP routes: resume upload, discovery + match + notify pipeline.
+
+Auth model: `POST /resumes` is anonymous and returns `{user_id, token}`. Every
+subsequent user-scoped route requires `Authorization: Bearer <token>` and the
+path `user_id` must match the token's user. This prevents ULID-guessing from
+mutating another user's profile or reading their notifications.
+"""
 from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
-from pydantic import BaseModel, EmailStr, Field
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel, EmailStr, Field, ValidationError
 from ulid import ULID
 
 from app.agents.discovery import DiscoveryAgent, DiscoveryInput
@@ -20,37 +27,71 @@ MAX_RESUME_BYTES = 4 * 1024 * 1024  # 4 MB
 
 router = APIRouter()
 
+_bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def require_user(user_id: str, request: Request,
+                 creds: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme)) -> str:
+    """Verify the bearer token resolves to the same user_id in the path.
+
+    Any mismatch — missing header, unknown token, wrong user — is a 401.
+    Returns the resolved user_id (which equals the path user_id on success).
+    """
+    if creds is None or not creds.credentials:
+        raise HTTPException(status_code=401, detail="missing_bearer_token")
+    resolved = request.app.state.token_store.resolve(creds.credentials)
+    if resolved is None or resolved != user_id:
+        raise HTTPException(status_code=401, detail="invalid_or_mismatched_token")
+    return resolved
+
 
 class ResumeUploadResponse(BaseModel):
     user_id: str
+    token: str            # keep this — required on all user-scoped endpoints
     detected_email: str | None
     detected_name: str | None
     skills: list[str]
     experience_count: int
-    gaps: list[str]      # questions the parser needs the user to answer
+    gaps: list[str]
 
 
 @router.post("/resumes", response_model=ResumeUploadResponse)
 async def upload_resume(request: Request, file: UploadFile = File(...)) -> ResumeUploadResponse:
-    from app.services.resume_parser import parse_resume, UnsupportedResumeFormat
+    from app.services.resume_parser import UnsupportedResumeFormat, parse_resume
 
     filename = file.filename or "resume"
-    data = await file.read()
-    if len(data) > MAX_RESUME_BYTES:
-        raise HTTPException(status_code=413, detail=f"Resume exceeds {MAX_RESUME_BYTES} bytes.")
-    if len(data) == 0:
+
+    # Stream-read with a running byte cap so an attacker cannot force the worker to
+    # buffer a multi-gigabyte body just to hit the size-check-then-413 path.
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(64 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > MAX_RESUME_BYTES:
+            raise HTTPException(status_code=413, detail=f"Resume exceeds {MAX_RESUME_BYTES} bytes.")
+        chunks.append(chunk)
+    if total == 0:
         raise HTTPException(status_code=400, detail="Empty upload.")
+    data = b"".join(chunks)
 
     user_id = str(ULID())
     try:
         result = parse_resume(filename, data, user_id=user_id)
     except UnsupportedResumeFormat as e:
         raise HTTPException(status_code=415, detail=str(e))
+    except ValidationError as e:
+        # Extracted URL/email failed HttpUrl/EmailStr validation. Return a 4xx, not 500.
+        raise HTTPException(status_code=422, detail={"parse_error": e.errors()})
 
     request.app.state.profile_store.put(result.profile)
+    token = request.app.state.token_store.issue(user_id)
 
     return ResumeUploadResponse(
         user_id=user_id,
+        token=token,
         detected_email=result.profile.email,
         detected_name=result.profile.full_name,
         skills=[s.name for s in result.profile.skills],
@@ -60,7 +101,6 @@ async def upload_resume(request: Request, file: UploadFile = File(...)) -> Resum
 
 
 class ProfilePatch(BaseModel):
-    """Fields the user can confirm/patch after upload. Nothing is invented server-side."""
     full_name: str | None = None
     email: EmailStr | None = None
     remote_only: bool | None = None
@@ -74,7 +114,8 @@ class ProfilePatch(BaseModel):
 
 
 @router.patch("/profiles/{user_id}")
-def patch_profile(user_id: str, patch: ProfilePatch, request: Request) -> dict[str, Any]:
+def patch_profile(user_id: str, patch: ProfilePatch, request: Request,
+                  _: str = Depends(require_user)) -> dict[str, Any]:
     store = request.app.state.profile_store
     profile = store.get(user_id)
     if profile is None:
@@ -96,13 +137,13 @@ def patch_profile(user_id: str, patch: ProfilePatch, request: Request) -> dict[s
 
 class SearchTarget(BaseModel):
     adapter: str = Field(pattern=r"^(greenhouse|lever)$")
-    employer_slug: str
+    employer_slug: str = Field(min_length=1, max_length=100, pattern=r"^[A-Za-z0-9_-]+$")
 
 
 class SearchRequest(BaseModel):
-    targets: list[SearchTarget]
-    top_n: int = 20
-    notify: bool = True         # send an email if the user's profile has one and matches pass verification
+    targets: list[SearchTarget] = Field(min_length=1, max_length=25)
+    top_n: int = Field(default=20, ge=1, le=100)
+    notify: bool = True
 
 
 class SearchResultItem(BaseModel):
@@ -125,16 +166,14 @@ class SearchResponse(BaseModel):
 
 
 @router.post("/profiles/{user_id}/search", response_model=SearchResponse)
-def search_for_profile(user_id: str, req: SearchRequest, request: Request) -> SearchResponse:
+def search_for_profile(user_id: str, req: SearchRequest, request: Request,
+                       _: str = Depends(require_user)) -> SearchResponse:
     app_state = request.app.state
     profile = app_state.profile_store.get(user_id)
     if profile is None:
         raise HTTPException(status_code=404, detail="profile_not_found")
 
     orchestrator = app_state.orchestrator
-    discovery: DiscoveryAgent = app_state.agents["discovery_agent"]  # type: ignore[assignment]
-    verifier: VerificationAgent = app_state.agents["verification_agent"]  # type: ignore[assignment]
-    matcher: MatchAgent = app_state.agents["match_agent"]  # type: ignore[assignment]
 
     disc_out = orchestrator.invoke(
         "discovery_agent", user_id,
@@ -184,13 +223,18 @@ def search_for_profile(user_id: str, req: SearchRequest, request: Request) -> Se
 
 
 @router.get("/notifications/{user_id}")
-def list_notifications(user_id: str, request: Request) -> dict[str, Any]:
-    """Dev-only inspection endpoint when using LogNotifier."""
+def list_notifications(user_id: str, request: Request,
+                       _: str = Depends(require_user)) -> dict[str, Any]:
+    profile = request.app.state.profile_store.get(user_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="profile_not_found")
     notifier = request.app.state.notifier
     sent = getattr(notifier, "sent", None)
     if sent is None:
         raise HTTPException(status_code=404, detail="notifier_not_inspectable")
+    if not profile.email:
+        return {"user_id": user_id, "notifications": []}
     return {"user_id": user_id, "notifications": [
         {"subject": p.subject, "job_id": p.job_id, "created_at": p.created_at.isoformat()}
-        for p in sent if p.user_email  # simple filter placeholder
+        for p in sent if p.user_email.lower() == profile.email.lower()
     ]}

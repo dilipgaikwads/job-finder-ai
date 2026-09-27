@@ -5,7 +5,6 @@ from urllib.parse import urlparse
 
 import tldextract
 
-
 # Well-known ATS hosts. If an application URL is on one of these, it's a strong signal
 # (though the employer subdomain/slug is what actually anchors trust).
 ATS_HOSTS: dict[str, str] = {

@@ -19,7 +19,6 @@ from app.models.job import Job, RemoteStatus
 from app.models.match import MatchAnalysis, MatchDimension
 from app.models.profile import Profile
 
-
 DEFAULT_WEIGHTS: dict[str, float] = {
     "profile_compatibility": 3.0,
     "ai_relevance": 2.0,
@@ -135,11 +134,12 @@ class MatchAgent(Agent[MatchInput, MatchAnalysis]):
 
         # ---------- compensation (only if provenance disclosed) ----------
         if job.compensation.provenance in {"confirmed", "employer_range", "legally_disclosed"}:
+            comp_score, comp_expl = _compensation_score(job, profile)
             dimensions.append(MatchDimension(
                 name="compensation",
-                score=0.7,   # placeholder — Phase 6 normalizes and compares against user target
+                score=comp_score,
                 weight=weights["compensation"],
-                explanation=f"Compensation provenance disclosed: {job.compensation.provenance}.",
+                explanation=comp_expl,
                 evidence_ids=[_mk_ev(ctx, "comp_provenance_disclosed", VerificationStatus.VERIFIED)],
             ))
         # else: intentionally omit — no compensation weight when unverified.
@@ -167,13 +167,62 @@ _AI_TERMS = (
     "machine learning", "deep learning", "llm", "large language model", "generative ai",
     "genai", "rag", "vector database", "pytorch", "tensorflow", "transformer",
     "nlp", "computer vision", "mlops", "reinforcement learning", "fine-tuning",
-    "prompt engineering", "agents", "agentic",
+    # "agents" alone is too generic (travel agents, real-estate agents) — use
+    # "ai agents"/"agentic"/"agent framework" for AI-relevance signal.
+    "prompt engineering", "ai agents", "agentic", "agent framework",
 )
 
 
 def _ai_terms_in(text: str) -> set[str]:
+    """Word-boundary match so 'rag' doesn't hit 'drag'/'storage'/'fragment' and
+    'agents' doesn't hit 'agents of change' or 'travel agents'.
+    """
     t = text.lower()
-    return {term for term in _AI_TERMS if term in t}
+    found: set[str] = set()
+    for term in _AI_TERMS:
+        pattern = r"(?<![A-Za-z0-9+])" + re.escape(term) + r"(?![A-Za-z0-9+])"
+        if re.search(pattern, t):
+            found.add(term)
+    return found
+
+
+def _compensation_score(job, profile) -> tuple[float, str]:
+    """Compare disclosed comp against the user's min/target. Only annualized USD base is used
+    (v0). If we can't normalize (non-USD, non-annual, no numbers), return a neutral 0.5.
+    """
+    base_amounts: list[float] = []
+    for c in job.compensation.components:
+        if c.kind != "base" or c.currency.upper() != "USD" or c.period != "year":
+            continue
+        # Prefer the top of the range when comparing to user target (best case for the user);
+        # use bottom for comparison to their minimum floor.
+        if c.amount_min is not None:
+            base_amounts.append(c.amount_min)
+        if c.amount_max is not None:
+            base_amounts.append(c.amount_max)
+    if not base_amounts:
+        return 0.5, (
+            f"Compensation disclosed ({job.compensation.provenance}) but not comparable "
+            "(non-USD, non-annual, or no numeric range)."
+        )
+    lo, hi = min(base_amounts), max(base_amounts)
+    prefs = profile.preferences
+    if prefs.min_base_salary_usd and hi < prefs.min_base_salary_usd:
+        return 0.1, (
+            f"Disclosed base up to ${int(hi):,} is below your minimum "
+            f"${int(prefs.min_base_salary_usd):,}."
+        )
+    if prefs.target_base_salary_usd:
+        # Score climbs to 1.0 as top-of-range meets or exceeds the target.
+        ratio = hi / prefs.target_base_salary_usd
+        score = max(0.0, min(1.0, ratio))
+        return score, (
+            f"Disclosed base ${int(lo):,}–${int(hi):,} vs your target "
+            f"${int(prefs.target_base_salary_usd):,}."
+        )
+    return 0.7, (
+        f"Compensation disclosed ({job.compensation.provenance}), no user target set for comparison."
+    )
 
 
 def _skills_mentioned(job_text: str, user_skills: set[str]) -> set[str]:

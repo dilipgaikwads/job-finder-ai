@@ -7,7 +7,7 @@ authoring these boards is a strong evidence signal for legitimacy.
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 
@@ -16,7 +16,6 @@ from app.models.evidence import ConfidenceLevel, Evidence, SourceType, Verificat
 from app.models.job import CompensationBreakdown, Job, RemoteStatus
 
 from .base import DiscoveryAdapter, RawPosting
-
 
 _GREENHOUSE_API = "https://boards-api.greenhouse.io/v1/boards/{slug}/jobs"
 
@@ -45,7 +44,7 @@ class GreenhouseAdapter(DiscoveryAdapter):
         return [self._to_posting(employer_slug, j) for j in data.get("jobs", [])]
 
     def _to_posting(self, employer_slug: str, j: dict) -> RawPosting:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         title = j.get("title", "").strip()
         absolute_url = j.get("absolute_url") or ""
         source_url = absolute_url  # Greenhouse absolute_url is the canonical posting URL
@@ -106,15 +105,29 @@ def _dedup_key(slug: str, title: str, location: str | None, updated_at: str | No
     return f"{slug}::{t}::{loc}::{bucket}"
 
 
+_LOC_REMOTE_RE = re.compile(r"\bremote\b", re.IGNORECASE)
+# 'global' alone is too loose ("global scope"); require it to describe the role's reach.
+_GLOBAL_REMOTE_RE = re.compile(
+    r"\b(?:worldwide|from\s+anywhere|remote\s+worldwide|remote\s+global|"
+    r"work\s+from\s+anywhere|globally\s+distributed)\b",
+    re.IGNORECASE,
+)
+_MUST_RELOCATE_RE = re.compile(r"\bmust\s+relocate\b|\brelocation\s+required\b", re.IGNORECASE)
+
+
 def _infer_remote(location: str | None, description: str) -> RemoteStatus:
-    text = f"{location or ''} {description}".lower()
-    if "remote" in (location or "").lower():
-        if any(w in text for w in ("worldwide", "global", "anywhere")):
+    loc = location or ""
+    text = f"{loc} {description}"
+    if _LOC_REMOTE_RE.search(loc):
+        # Guard against posts that say "Remote (must relocate to NYC)" — that's onsite.
+        if _MUST_RELOCATE_RE.search(text):
+            return RemoteStatus.ONSITE
+        if _GLOBAL_REMOTE_RE.search(text):
             return RemoteStatus.REMOTE_GLOBAL
         return RemoteStatus.REMOTE_REGION
-    if "hybrid" in text:
+    if re.search(r"\bhybrid\b", text, re.IGNORECASE):
         return RemoteStatus.HYBRID
-    if any(w in text for w in ("on-site", "onsite", "in office", "in-office")):
+    if re.search(r"\b(?:on-?site|in[- ]office)\b", text, re.IGNORECASE):
         return RemoteStatus.ONSITE
     return RemoteStatus.UNKNOWN
 

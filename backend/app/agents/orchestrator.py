@@ -62,9 +62,7 @@ def _collect_evidence_ids(obj: Any) -> set[str]:
     ids: set[str] = set()
     if isinstance(obj, dict):
         for k, v in obj.items():
-            if k == "evidence_ids" and isinstance(v, list):
-                ids.update(str(x) for x in v)
-            elif k.endswith("_evidence_ids") and isinstance(v, list):
+            if k == "evidence_ids" and isinstance(v, list) or k.endswith("_evidence_ids") and isinstance(v, list):
                 ids.update(str(x) for x in v)
             else:
                 ids.update(_collect_evidence_ids(v))

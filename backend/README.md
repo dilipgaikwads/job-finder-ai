@@ -58,14 +58,16 @@ tests/
 
 ## Endpoints
 
-| Method | Path | What |
-|---|---|---|
-| GET  | `/health` | Liveness. |
-| POST | `/jobs/verify` | Verify an arbitrary `Job` payload — returns `VerificationReport`. |
-| POST | `/resumes` | Multipart upload (.pdf/.docx/.txt) → returns `user_id`, detected fields, and `gaps[]`. |
-| PATCH | `/profiles/{user_id}` | Confirm user-owned facts (name, email, prefs). Nothing is inferred. |
-| POST | `/profiles/{user_id}/search` | Fan out across adapters → verify → match → notify. |
-| GET  | `/notifications/{user_id}` | Inspect notifications sent (dev, when `LogNotifier` is active). |
+| Method | Path | Auth | What |
+|---|---|---|---|
+| GET  | `/health` | — | Liveness. |
+| POST | `/jobs/verify` | — | Verify an arbitrary `Job` payload — returns `VerificationReport`. |
+| POST | `/resumes` | — | Multipart upload (.pdf/.docx/.txt). Returns `user_id`, `token`, detected fields, and `gaps[]`. |
+| PATCH | `/profiles/{user_id}` | Bearer | Confirm user-owned facts (name, email, prefs). Nothing is inferred. |
+| POST | `/profiles/{user_id}/search` | Bearer | Fan out across adapters → verify → match → notify. |
+| GET  | `/notifications/{user_id}` | Bearer | Inspect notifications sent (dev, when `LogNotifier` is active). |
+
+**Auth:** the `/resumes` upload returns an opaque bearer token. Every user-scoped route requires `Authorization: Bearer <token>` **and** the path `user_id` must match the token's user. Missing or mismatched → `401`.
 
 ## What's next
 

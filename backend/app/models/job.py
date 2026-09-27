@@ -8,7 +8,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, HttpUrl, model_validator
 from ulid import ULID
 
-from .evidence import Evidence, SourceType, VerificationStatus
+from .evidence import VerificationStatus
 
 
 class RemoteStatus(str, Enum):

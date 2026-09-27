@@ -6,7 +6,7 @@ No auth required for public postings.
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 
@@ -15,7 +15,6 @@ from app.models.evidence import ConfidenceLevel, Evidence, SourceType, Verificat
 from app.models.job import CompensationBreakdown, Job, RemoteStatus
 
 from .base import DiscoveryAdapter, RawPosting
-
 
 _LEVER_API = "https://api.lever.co/v0/postings/{site}"
 
@@ -43,7 +42,7 @@ class LeverAdapter(DiscoveryAdapter):
         return [self._to_posting(employer_slug, p) for p in resp.json()]
 
     def _to_posting(self, employer_slug: str, p: dict) -> RawPosting:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         title = p.get("text", "").strip()
         hosted_url = p.get("hostedUrl") or ""
         apply_url = p.get("applyUrl") or hosted_url

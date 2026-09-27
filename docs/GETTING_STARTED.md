@@ -210,9 +210,10 @@ There are two easy ways. Pick one.
 2. Find `POST /resumes`, click it, then click **"Try it out."**
 3. Under `file`, click "Choose File" and pick your resume (`.pdf`, `.docx`, or `.txt`).
 4. Click the big blue **"Execute"** button.
-5. Scroll down to the "Response body." Copy the `user_id` value (a long string of letters and numbers).
-6. Now find `POST /profiles/{user_id}/search`, click it, click "Try it out."
-7. Paste your `user_id`. In the request-body box, replace the text with:
+5. Scroll down to the "Response body." Copy **both** the `user_id` value (a long string) and the `token` value (a longer random string). You will need the token for every next step — it's your login for this session.
+6. At the top of the `/docs` page, click the **"Authorize"** button (a padlock icon on the right). In the box that opens, paste your `token` and click "Authorize," then "Close." Every subsequent request from this page will now carry your token automatically.
+7. Now find `POST /profiles/{user_id}/search`, click it, click "Try it out."
+8. Paste your `user_id`. In the request-body box, replace the text with:
 
 ```
 {
@@ -226,7 +227,7 @@ There are two easy ways. Pick one.
 }
 ```
 
-8. Click **Execute**. In a few seconds you'll see a ranked list of jobs from those companies, with verification status and a match score.
+9. Click **Execute**. In a few seconds you'll see a ranked list of jobs from those companies, with verification status and a match score.
 
 *(You can swap in any employer's Greenhouse or Lever slug. The "slug" is the last part of their careers URL. For example, Airbnb's Greenhouse URL is `https://boards.greenhouse.io/airbnb` — the slug is `airbnb`.)*
 
@@ -240,13 +241,16 @@ curl -F "file=@/path/to/your/resume.pdf" http://127.0.0.1:8000/resumes
 
 Replace `/path/to/your/resume.pdf` with the real path. On Mac you can drag the resume file into the Terminal window and it will paste the path.
 
-The response will include your `user_id`. Then:
+The response will include your `user_id` **and** a `token`. Copy both. Then, replacing the placeholders below:
 
 ```
-curl -X POST http://127.0.0.1:8000/profiles/PASTE_USER_ID_HERE/search \
+curl -X POST http://127.0.0.1:8000/profiles/PASTE_USER_ID/search \
+  -H "Authorization: Bearer PASTE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"targets":[{"adapter":"greenhouse","employer_slug":"airbnb"}],"top_n":5,"notify":false}'
 ```
+
+The `Authorization: Bearer` line is required — the app rejects unauthorized user-scoped requests with a `401`.
 
 ---
 

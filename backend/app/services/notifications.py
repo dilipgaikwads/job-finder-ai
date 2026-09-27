@@ -12,14 +12,13 @@ import logging
 import os
 import smtplib
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.message import EmailMessage
 from typing import Protocol
 
 from app.models.job import Job
 from app.models.match import MatchAnalysis
 from app.models.verification import VerificationReport
-
 
 log = logging.getLogger(__name__)
 
@@ -85,17 +84,32 @@ class SMTPNotifier:
                 s.login(self.user, self.password)
                 s.send_message(msg)
             return True
-        except Exception:  # noqa: BLE001
+        except Exception:
             log.exception("smtp_send_failed", extra={"user_email": payload.user_email})
             return False
+
+
+def _sanitize_header(s: str, max_len: int = 200) -> str:
+    """Strip CR/LF/NUL and any other control chars from any string used in an
+    email header. Prevents header injection when values come from an ATS or
+    a resume — smtplib raises ValueError otherwise, which would crash the
+    LogNotifier (no try/except) and abort the enclosing search request.
+    """
+    cleaned = "".join(c for c in s if c.isprintable() and c not in ("\r", "\n"))
+    cleaned = cleaned.strip()
+    if len(cleaned) > max_len:
+        cleaned = cleaned[: max_len - 1] + "…"
+    return cleaned or "(untitled)"
 
 
 def build_payload(
     user_email: str, job: Job, verification: VerificationReport, match: MatchAnalysis
 ) -> NotificationPayload:
     top_dims = sorted(match.dimensions, key=lambda d: d.score * d.weight, reverse=True)[:3]
+    safe_title = _sanitize_header(job.title)
+    safe_employer = _sanitize_header(job.employer)
     lines = [
-        f"New match: {job.title} at {job.employer}",
+        f"New match: {safe_title} at {safe_employer}",
         f"Location: {job.location or 'unspecified'} — {job.remote_status.value}",
         f"Apply: {job.application_url}",
         "",
@@ -112,8 +126,8 @@ def build_payload(
     ]
     return NotificationPayload(
         user_email=user_email,
-        subject=f"[Job Finder AI] {job.title} — {job.employer} ({verification.composite_status.value})",
+        subject=f"[Job Finder AI] {safe_title} — {safe_employer} ({verification.composite_status.value})",
         body_text="\n".join(lines),
         job_id=job.id,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
