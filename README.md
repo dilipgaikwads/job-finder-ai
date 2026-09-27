@@ -11,8 +11,11 @@ An evidence-first, multi-agent career platform that discovers verified job oppor
 - [`docs/AGENTS.md`](docs/AGENTS.md) — agent responsibilities, prompts, and tool contracts
 - [`docs/EVIDENCE.md`](docs/EVIDENCE.md) — the evidence/provenance model that every fact flows through
 - [`backend/`](backend/) — Python FastAPI service (agents, orchestrator, evidence store, verification)
+- [`docs/SOURCING_POLICY.md`](docs/SOURCING_POLICY.md) — what job sources are and aren't allowed, and why (dark web is out — read this)
 - [`android/`](android/) — Jetpack Compose app targeting Samsung Galaxy S26 Ultra / modern Android
 
 ## Status
 
-Phase 1–3 scaffold. Runnable backend with evidence-first models, a stub orchestrator, and one verified thin slice: profile → job → verification → match. Android is directory layout + one starter screen. See `ROADMAP.md` for what is intentionally not yet built.
+Phases 1–5 working. Runnable backend: **resume upload → job discovery (Greenhouse & Lever) → verification → matching → notifications**, end-to-end, with 27 passing tests. High-risk postings are filtered before they can reach a notification.
+
+Android is directory layout + a starter screen. See `docs/ROADMAP.md` for what's next.

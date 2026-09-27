@@ -45,13 +45,28 @@ tests/
   test_api.py
 ```
 
-## What's here (Phase 1–3)
+## What's here (Phases 1–5)
 
 - Evidence-first models with invariants (`Job` refuses to construct without evidence ids on core fields).
-- `Orchestrator` rejects any agent output whose emitted evidence ids don't resolve in the store — prevents cross-agent hallucination propagation.
-- `VerificationAgent` runs 7 deterministic signals and returns a per-signal + composite `VerificationReport`.
-- `POST /jobs/verify` endpoint end-to-end.
+- `Orchestrator` rejects any agent output whose emitted evidence ids don't resolve in the store.
+- `VerificationAgent` — 7 deterministic signals (domain match, ATS allowlist, source consistency, scam phrases, upfront payment, required fields, comp provenance).
+- **Resume parser** — PDF/DOCX/TXT → structured Profile draft with `gaps[]` (never invents).
+- **Discovery adapters** — Greenhouse and Lever public job boards, real APIs, `httpx.MockTransport` tests.
+- **`MatchAgent`** — deterministic per-dimension scoring with per-dimension evidence.
+- **Notifications** — `LogNotifier` (default) and `SMTPNotifier` (env-configured); high-risk postings never trigger notifications.
+- 27 passing tests, including a full upload → search → verify → match → notify end-to-end.
+
+## Endpoints
+
+| Method | Path | What |
+|---|---|---|
+| GET  | `/health` | Liveness. |
+| POST | `/jobs/verify` | Verify an arbitrary `Job` payload — returns `VerificationReport`. |
+| POST | `/resumes` | Multipart upload (.pdf/.docx/.txt) → returns `user_id`, detected fields, and `gaps[]`. |
+| PATCH | `/profiles/{user_id}` | Confirm user-owned facts (name, email, prefs). Nothing is inferred. |
+| POST | `/profiles/{user_id}/search` | Fan out across adapters → verify → match → notify. |
+| GET  | `/notifications/{user_id}` | Inspect notifications sent (dev, when `LogNotifier` is active). |
 
 ## What's next
 
-See `docs/ROADMAP.md`. Phase 4 = profile ingestion; Phase 5 = Discovery adapters (Greenhouse/Lever first).
+See `docs/ROADMAP.md`. Phase 6 = comp normalization & richer match; Phase 7 = extended verification (WHOIS, cross-source consistency); Phase 8 = application prep.
