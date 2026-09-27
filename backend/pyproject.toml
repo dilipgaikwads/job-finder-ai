@@ -22,6 +22,9 @@ dev = [
     "hypothesis>=6.100",
     "ruff>=0.5",
 ]
+docs = [
+    "weasyprint>=62",
+]
 
 [build-system]
 requires = ["setuptools>=68"]

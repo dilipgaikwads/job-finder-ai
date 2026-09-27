@@ -11,6 +11,7 @@ An evidence-first, multi-agent career platform that discovers verified job oppor
 - [`docs/AGENTS.md`](docs/AGENTS.md) — agent responsibilities, prompts, and tool contracts
 - [`docs/EVIDENCE.md`](docs/EVIDENCE.md) — the evidence/provenance model that every fact flows through
 - [`backend/`](backend/) — Python FastAPI service (agents, orchestrator, evidence store, verification)
+- [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md) / [PDF](docs/Job-Finder-AI-Getting-Started.pdf) — step-by-step install + run for Mac and Windows, written for non-technical readers
 - [`docs/SOURCING_POLICY.md`](docs/SOURCING_POLICY.md) — what job sources are and aren't allowed, and why (dark web is out — read this)
 - [`android/`](android/) — Jetpack Compose app targeting Samsung Galaxy S26 Ultra / modern Android
 
