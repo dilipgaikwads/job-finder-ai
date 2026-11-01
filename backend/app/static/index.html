@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f7fb">
+  <meta name="description" content="Evidence-first job discovery, verification and matching.">
+  <title>Job Finder AI</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="/" aria-label="Job Finder AI home">
+        <span class="brand-mark">JF</span>
+        <span class="brand-copy"><strong>Job Finder <span>AI</span></strong><small>CAREER INTELLIGENCE</small></span>
+      </a>
+      <div class="workspace-label">WORKSPACE</div>
+      <nav class="main-nav" aria-label="Main navigation">
+        <button class="nav-item active" data-view="dashboard"><span class="nav-icon">⌂</span><span>Overview</span></button>
+        <button class="nav-item" data-view="profile"><span class="nav-icon">◎</span><span>My profile</span></button>
+        <button class="nav-item" data-view="discover"><span class="nav-icon">⌕</span><span>Find jobs</span><span class="nav-tag">AI</span></button>
+        <button class="nav-item" data-view="alerts"><span class="nav-icon">◷</span><span>Notifications</span></button>
+      </nav>
+      <div class="sidebar-spacer"></div>
+      <div class="sidebar-note">
+        <div class="sidebar-note-icon">✦</div>
+        <strong>Evidence over guesses.</strong>
+        <p>Every job is checked before it is recommended. Uncertain information stays visible.</p>
+      </div>
+      <div class="sidebar-bottom">
+        <span class="avatar">JF</span>
+        <span class="sidebar-user"><strong id="sidebarUser">Your workspace</strong><small id="sidebarSession">Not connected</small></span>
+        <button class="icon-button" id="disconnectBtn" title="Clear this browser session" aria-label="Clear session">↪</button>
+      </div>
+    </aside>
+
+    <div class="main-shell">
+      <header class="topbar">
+        <button class="mobile-menu icon-button" id="menuBtn" aria-label="Toggle navigation">☰</button>
+        <div class="breadcrumb"><span>Workspace</span><b>/</b><strong id="currentPage">Overview</strong></div>
+        <div class="topbar-right">
+          <span class="environment-label"><i></i> LOCAL WORKSPACE</span>
+          <span class="connection-pill" id="connectionStatus"><i></i><span>Checking API…</span></span>
+        </div>
+      </header>
+
+      <main class="content">
+        <section class="view-section" id="view-dashboard">
+          <div class="welcome-row">
+            <div>
+              <p class="eyebrow">YOUR CAREER WORKSPACE</p>
+              <h1>Find work that <span>fits you.</span></h1>
+              <p class="page-description">Discover real opportunities, check their credibility and understand why each role matches your experience.</p>
+            </div>
+            <button class="button button-primary" data-go="discover"><span>⌕</span> Find matching jobs</button>
+          </div>
+
+          <div class="hero-card">
+            <div class="hero-copy">
+              <span class="hero-kicker"><span class="sparkle">✦</span> THE EVIDENCE-FIRST JOB AGENT</span>
+              <h2>Your next career move,<br>with <em>clarity.</em></h2>
+              <p>One workspace for your resume, job discovery, employer checks and transparent match scores. You stay in control at every step.</p>
+              <div class="hero-actions">
+                <button class="button button-light" data-go="profile">Set up my profile <span>→</span></button>
+                <span class="hero-caption">No automatic applications. No invented qualifications.</span>
+              </div>
+            </div>
+            <div class="hero-art" aria-hidden="true">
+              <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+              <div class="orbit-dot dot-one"></div><div class="orbit-dot dot-two"></div>
+              <div class="orbit-dot dot-three"></div>
+              <div class="score-orb"><span>✦</span><strong>AI</strong><small>CAREER MATCH</small></div>
+              <div class="floating-card floating-top"><span class="mini-check">✓</span><span><b>Evidence checked</b><small>Source-first discovery</small></span></div>
+              <div class="floating-card floating-bottom"><span class="mini-bars">▥</span><span><b>Transparent matches</b><small>Skills · Fit · Verification</small></span></div>
+            </div>
+          </div>
+
+          <div class="section-heading">
+            <div><h2>Your workspace</h2><p>Live counts from this browser session.</p></div>
+            <span class="subtle-label">SESSION SUMMARY</span>
+          </div>
+          <div class="metric-grid">
+            <article class="metric-card"><div class="metric-top"><span>Profile status</span><span class="metric-icon icon-purple">◎</span></div><strong id="metricProfile">Not set up</strong><small id="metricProfileHint">Upload a resume to begin</small></article>
+            <article class="metric-card"><div class="metric-top"><span>Jobs discovered</span><span class="metric-icon icon-blue">⌕</span></div><strong id="metricJobs">—</strong><small>From your latest search</small></article>
+            <article class="metric-card"><div class="metric-top"><span>Roles returned</span><span class="metric-icon icon-green">↗</span></div><strong id="metricMatches">—</strong><small>After risk filtering and ranking</small></article>
+            <article class="metric-card"><div class="metric-top"><span>High-risk filtered</span><span class="metric-icon icon-amber">◇</span></div><strong id="metricRisk">—</strong><small>Not shown as recommendations</small></article>
+          </div>
+
+          <div class="dashboard-grid">
+            <article class="panel getting-started">
+              <div class="panel-heading"><div><span class="eyebrow">GET STARTED</span><h2>Build your job search</h2></div><span class="panel-symbol">✦</span></div>
+              <p class="panel-description">Three practical steps to get useful, relevant opportunities.</p>
+              <div class="setup-steps">
+                <button class="setup-step" data-go="profile"><span class="step-number" id="stepOne">1</span><span><b>Upload your resume</b><small>We extract skills and experience, then flag anything that needs confirmation.</small></span><span class="step-arrow">→</span></button>
+                <button class="setup-step" data-go="profile"><span class="step-number" id="stepTwo">2</span><span><b>Confirm your preferences</b><small>Tell the matcher about role interests, salary and work arrangements.</small></span><span class="step-arrow">→</span></button>
+                <button class="setup-step" data-go="discover"><span class="step-number" id="stepThree">3</span><span><b>Discover verified jobs</b><small>Search official Greenhouse and Lever job boards.</small></span><span class="step-arrow">→</span></button>
+              </div>
+              <button class="text-link" data-go="profile">Complete your profile <span>→</span></button>
+            </article>
+            <article class="panel trust-panel">
+              <div class="panel-heading"><div><span class="eyebrow">BUILT FOR TRUST</span><h2>How recommendations work</h2></div></div>
+              <div class="trust-list">
+                <div class="trust-item"><span class="trust-icon">01</span><div><b>Discover at the source</b><p>Jobs are retrieved from supported employer ATS boards.</p></div></div>
+                <div class="trust-item"><span class="trust-icon">02</span><div><b>Check the opportunity</b><p>Signals and risk indicators are reviewed before ranking.</p></div></div>
+                <div class="trust-item"><span class="trust-icon">03</span><div><b>Explain the match</b><p>Scores are paired with reasons, gaps and next actions.</p></div></div>
+              </div>
+              <div class="trust-foot"><span>✓</span> High-risk postings are filtered before recommendations.</div>
+            </article>
+          </div>
+          <p class="disclaimer">Early access · Local development version · Your profile and session are held in backend memory and reset when the server restarts.</p>
+        </section>
+
+        <section class="view-section" id="view-profile" hidden>
+          <div class="page-heading"><div><p class="eyebrow">YOUR PROFESSIONAL IDENTITY</p><h1>My profile</h1><p class="page-description">Upload your resume, review extracted details and confirm your job preferences. The system never fills missing qualifications by guessing.</p></div></div>
+          <div class="profile-layout">
+            <div class="profile-main">
+              <article class="panel upload-panel">
+                <div class="panel-heading"><div><span class="eyebrow">STEP 01 · RESUME</span><h2>Upload your resume</h2></div><span class="upload-symbol">↑</span></div>
+                <p class="panel-description">Supported formats: PDF, DOCX and TXT. Maximum file size: 4 MB.</p>
+                <form id="uploadForm">
+                  <label class="dropzone" id="dropzone" for="resumeFile">
+                    <span class="upload-cloud">↑</span><b>Drop your resume here</b><span>or <u>browse files</u></span><small id="selectedFile">No file selected</small>
+                    <input id="resumeFile" name="file" type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" required>
+                  </label>
+                  <div class="form-actions"><span class="microcopy">Your file is parsed by the local backend; this UI does not keep a resume copy.</span><button class="button button-primary" id="uploadButton" type="submit">Upload and analyse <span>→</span></button></div>
+                </form>
+                <div class="inline-message" id="uploadMessage" role="status" hidden></div>
+              </article>
+
+              <article class="panel detected-panel">
+                <div class="panel-heading"><div><span class="eyebrow">STEP 02 · REVIEW</span><h2>Extracted information</h2></div><span class="status-chip" id="profileStatus">Awaiting resume</span></div>
+                <div id="emptyProfile" class="empty-state"><span class="empty-icon">◎</span><b>Your profile will appear here</b><p>Upload a resume to see the information extracted by the parser.</p></div>
+                <div id="extractedProfile" hidden>
+                  <div class="detected-grid">
+                    <div><small>FULL NAME</small><b id="detectedName">—</b></div>
+                    <div><small>EMAIL</small><b id="detectedEmail">—</b></div>
+                    <div><small>EXPERIENCE ENTRIES</small><b id="detectedExperience">—</b></div>
+                  </div>
+                  <div class="skills-block"><small>SKILLS DETECTED</small><div class="skill-tags" id="detectedSkills"></div></div>
+                  <div class="gaps-box"><div class="gaps-title"><span>ⓘ</span><b>Details to confirm</b></div><ul id="profileGaps"></ul></div>
+                </div>
+              </article>
+
+              <article class="panel preferences-panel">
+                <div class="panel-heading"><div><span class="eyebrow">STEP 03 · PREFERENCES</span><h2>Career preferences</h2></div></div>
+                <p class="panel-description">Only confirmed preferences are sent to the matching service.</p>
+                <form id="profileForm">
+                  <div class="form-grid">
+                    <label class="field"><span>Full name</span><input id="profileName" type="text" placeholder="Your full name"></label>
+                    <label class="field"><span>Email address</span><input id="profileEmail" type="email" placeholder="you@example.com"></label>
+                    <label class="field"><span>Minimum base salary (USD / year)</span><input id="minSalary" type="number" min="0" step="1000" placeholder="Not specified"></label>
+                    <label class="field"><span>Target base salary (USD / year)</span><input id="targetSalary" type="number" min="0" step="1000" placeholder="Not specified"></label>
+                    <label class="field field-wide"><span>Roles you are interested in (comma separated)</span><input id="roleInterests" type="text" placeholder="Technical Writer, Product Manager, AI Engineer"></label>
+                  </div>
+                  <div class="preference-groups">
+                    <div><b>Work arrangement</b><label class="check-row"><input id="remoteOnly" type="checkbox"><span>Remote only</span></label><label class="check-row"><input id="hybridOk" type="checkbox" checked><span>Open to hybrid</span></label><label class="check-row"><input id="onsiteOk" type="checkbox"><span>Open to onsite</span></label></div>
+                    <div><b>Location flexibility</b><label class="check-row"><input id="relocationOk" type="checkbox"><span>Open to relocation</span></label><label class="check-row"><input id="internationalOk" type="checkbox"><span>Open to international roles</span></label></div>
+                  </div>
+                  <div class="form-actions"><span class="microcopy" id="profileSaveHint">Upload a resume first to create a secure session.</span><button class="button button-primary" type="submit">Save preferences <span>→</span></button></div>
+                </form>
+              </article>
+            </div>
+            <aside class="profile-aside">
+              <article class="panel side-info"><span class="aside-icon">✦</span><h3>Profile confidence</h3><p>Extracted fields are a draft. Review your name, contact details, skills and experience before running a search.</p></article>
+              <article class="panel side-info"><span class="aside-icon aside-amber">!</span><h3>Privacy in this build</h3><p>Profiles and bearer tokens are held in backend memory. Restarting the server clears them. Do not use this development build for sensitive production data.</p></article>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view-section" id="view-discover" hidden>
+          <div class="page-heading"><div><p class="eyebrow">OPPORTUNITY DISCOVERY</p><h1>Find matching jobs</h1><p class="page-description">Search supported employer job boards, review risk checks and compare each role against your confirmed profile.</p></div><span class="source-badge"><i></i> OFFICIAL ATS SOURCES</span></div>
+          <div class="search-layout">
+            <article class="panel search-panel">
+              <div class="panel-heading"><div><span class="eyebrow">SEARCH CONFIGURATION</span><h2>Where should we look?</h2></div><span class="panel-symbol">⌕</span></div>
+              <p class="panel-description">Enter the employer's Greenhouse or Lever board slug. These examples are editable.</p>
+              <div class="company-list" id="companyList">
+                <div class="company-row" data-company-row><label><span>Source</span><select name="adapter"><option value="greenhouse">Greenhouse</option><option value="lever">Lever</option></select></label><label class="slug-field"><span>Employer slug</span><input name="slug" value="airbnb" required></label><button class="remove-company" type="button" aria-label="Remove company">×</button></div>
+                <div class="company-row" data-company-row><label><span>Source</span><select name="adapter"><option value="greenhouse" selected>Greenhouse</option><option value="lever">Lever</option></select></label><label class="slug-field"><span>Employer slug</span><input name="slug" value="stripe" required></label><button class="remove-company" type="button" aria-label="Remove company">×</button></div>
+                <div class="company-row" data-company-row><label><span>Source</span><select name="adapter"><option value="greenhouse">Greenhouse</option><option value="lever" selected>Lever</option></select></label><label class="slug-field"><span>Employer slug</span><input name="slug" value="figma" required></label><button class="remove-company" type="button" aria-label="Remove company">×</button></div>
+              </div>
+              <button class="add-company" type="button" id="addCompany">＋ Add another employer</button>
+              <div class="search-options">
+                <label class="field"><span>Maximum roles to return</span><select id="topN"><option value="5">5 roles</option><option value="10" selected>10 roles</option><option value="20">20 roles</option><option value="50">50 roles</option><option value="100">100 roles</option></select></label>
+                <label class="check-row notify-check"><input id="notifyToggle" type="checkbox"><span>Send notifications for verified matches</span></label>
+              </div>
+              <div class="notice-box"><span>ⓘ</span><p>Notifications are log-only by default in this local build. Enable email only after configuring SMTP on the backend.</p></div>
+              <button class="button button-primary button-search" id="searchButton" type="button"><span>⌕</span> Search and match jobs</button>
+              <p class="microcopy search-hint" id="searchHint">Upload your resume and confirm your profile before searching.</p>
+            </article>
+            <aside class="panel search-how">
+              <span class="eyebrow">HOW THE ENGINE WORKS</span><h2>From source to shortlist.</h2>
+              <div class="mini-flow"><span>01</span><div><b>Discover</b><p>Retrieve open roles from supported ATS boards.</p></div></div>
+              <div class="mini-flow"><span>02</span><div><b>Verify</b><p>Check posting signals and filter high-risk roles.</p></div></div>
+              <div class="mini-flow"><span>03</span><div><b>Match</b><p>Rank remaining roles using profile compatibility dimensions.</p></div></div>
+              <div class="flow-foot">The engine explains its recommendation. It does not apply to jobs for you.</div>
+            </aside>
+          </div>
+          <div class="results-section" id="resultsSection" hidden>
+            <div class="section-heading"><div><h2>Your search results</h2><p id="resultsSubtitle">Ranked opportunities from your selected sources.</p></div><span class="subtle-label" id="resultsTimestamp"></span></div>
+            <div class="results-summary" id="resultsSummary"></div>
+            <div class="job-list" id="jobList"></div>
+          </div>
+        </section>
+
+        <section class="view-section" id="view-alerts" hidden>
+          <div class="page-heading"><div><p class="eyebrow">YOUR ACTIVITY</p><h1>Notifications</h1><p class="page-description">Review notification records created by your latest searches. In this development build, the default notifier records messages in backend memory instead of delivering email.</p></div><button class="button button-secondary" id="refreshAlerts">↻ Refresh</button></div>
+          <article class="panel notifications-panel">
+            <div class="panel-heading"><div><span class="eyebrow">NOTIFICATION HISTORY</span><h2>Recent alerts</h2></div><span class="status-chip">LOCAL LOG</span></div>
+            <div id="notificationList" class="notification-list"><div class="empty-state"><span class="empty-icon">◷</span><b>No notifications loaded</b><p>Connect your profile and refresh to inspect the current session's notification records.</p></div></div>
+          </article>
+          <div class="notice-box notice-wide"><span>ⓘ</span><p>To receive real email, configure SMTP environment variables before starting the backend. Do not paste SMTP passwords into this page.</p></div>
+        </section>
+      </main>
+      <footer class="app-footer"><span>JOB FINDER AI <b>·</b> LOCAL DEVELOPMENT</span><span>Evidence-first career intelligence</span><a href="/docs" target="_blank" rel="noopener">API documentation ↗</a></footer>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
