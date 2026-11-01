@@ -8,6 +8,7 @@ from docx import Document
 from app.services.resume_parser import (
     MAX_DOCX_ENTRIES,
     MAX_DOCX_ENTRY_BYTES,
+    MAX_DOCX_UNCOMPRESSED_BYTES,
     UnsupportedResumeFormat,
     parse_resume,
 )
@@ -99,3 +100,17 @@ def test_docx_rejects_malformed_zip_package():
 
     with pytest.raises(UnsupportedResumeFormat, match="Invalid or unreadable DOCX"):
         parse_resume("broken.docx", b"not a zip archive", user_id="u6")
+
+
+
+def test_docx_rejects_excessive_total_uncompressed_size():
+    import pytest
+
+    chunk = b"x" * (MAX_DOCX_UNCOMPRESSED_BYTES // 2 + 1)
+    data = _zip_with_entries([
+        ("[Content_Types].xml", b"<Types/>"),
+        ("word/document.xml", chunk),
+        ("word/styles.xml", chunk),
+    ])
+    with pytest.raises(UnsupportedResumeFormat, match="expands beyond"):
+        parse_resume("expanded.docx", data, user_id="u7")
