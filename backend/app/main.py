@@ -1,16 +1,15 @@
-"""FastAPI app wiring."""
+"""FastAPI application wiring and local web dashboard."""
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.agents import Orchestrator, VerificationAgent
-from app.agents.discovery import (
-    DiscoveryAgent,
-    GreenhouseAdapter,
-    LeverAdapter,
-)
+from app.agents.discovery import DiscoveryAgent, GreenhouseAdapter, LeverAdapter
 from app.agents.match_agent import MatchAgent
 from app.agents.verification_agent import VerificationAgentInput
 from app.api.routes import router as api_router
@@ -24,10 +23,20 @@ from app.services.profile_store import InMemoryProfileStore
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="Job Finder AI — Backend",
-        version="0.2.0",
-        description="Evidence-first multi-agent career platform. Resume upload → verified discovery → match → notify.",
+        title="Job Finder AI",
+        version="0.3.0",
+        description=(
+            "Evidence-first career workspace: resume upload, official-source job discovery, "
+            "verification, matching and notifications."
+        ),
     )
+
+    static_dir = Path(__file__).resolve().parent / "static"
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+    @app.get("/", include_in_schema=False)
+    def home() -> FileResponse:
+        return FileResponse(static_dir / "index.html")
 
     store = InMemoryEvidenceStore()
     profile_store = InMemoryProfileStore()
@@ -43,7 +52,7 @@ def create_app() -> FastAPI:
     orch.register(verification)
     orch.register(matcher)
 
-    # Notifier: SMTP if env is configured, else log-only.
+    # SMTP is optional. Without SMTP_HOST, notifications are safely logged locally.
     notifier = SMTPNotifier() if os.environ.get("SMTP_HOST") else LogNotifier()
 
     app.state.evidence_store = store

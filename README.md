@@ -1,22 +1,42 @@
 # Job Finder AI
 
-An evidence-first, multi-agent career platform that discovers verified job opportunities, prepares tailored applications, and coaches the user through interviews — without hallucinating facts.
+An evidence-first career platform that discovers job opportunities from supported official ATS sources, checks risk signals, and explains profile-to-job matching.
 
 **Design principle:** Reliability over apparent intelligence. Prefer "I could not verify this" over confident guesses.
 
-## Contents
+## Current runnable experience
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system, agent, data, evidence, and safety architecture
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — 16-phase implementation plan with acceptance criteria
-- [`docs/AGENTS.md`](docs/AGENTS.md) — agent responsibilities, prompts, and tool contracts
-- [`docs/EVIDENCE.md`](docs/EVIDENCE.md) — the evidence/provenance model that every fact flows through
-- [`backend/`](backend/) — Python FastAPI service (agents, orchestrator, evidence store, verification)
-- [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md) / [PDF](docs/Job-Finder-AI-Getting-Started.pdf) — step-by-step install + run for Mac and Windows, written for non-technical readers
-- [`docs/SOURCING_POLICY.md`](docs/SOURCING_POLICY.md) — what job sources are and aren't allowed, and why (dark web is out — read this)
-- [`android/`](android/) — Jetpack Compose app targeting Samsung Galaxy S26 Ultra / modern Android
+- Responsive local web dashboard served by FastAPI at `http://127.0.0.1:8000/`.
+- Resume upload and draft profile extraction (PDF, DOCX, TXT).
+- Profile preference confirmation.
+- Job discovery through supported Greenhouse and Lever boards.
+- Verification and transparent match ranking with risk filtering.
+- Local notification inspection (log-only by default).
+- Interactive API documentation at `/docs`.
 
-## Status
+## Repository
 
-Phases 1–5 working. Runnable backend: **resume upload → job discovery (Greenhouse & Lever) → verification → matching → notifications**, end-to-end, with 27 passing tests. High-risk postings are filtered before they can reach a notification.
+- `backend/` — FastAPI service, agents, resume parser, APIs and static dashboard.
+- `android/` — Jetpack Compose starter project.
+- `docs/ARCHITECTURE.md` — architecture and safety model.
+- `docs/ROADMAP.md` — planned product phases.
+- `docs/SOURCING_POLICY.md` — allowed job-source policy.
+- `docs/GETTING_STARTED.md` — macOS and Windows setup and run instructions.
 
-Android is directory layout + a starter screen. See `docs/ROADMAP.md` for what's next.
+## Run locally on macOS
+
+```bash
+cd "$HOME/Job Finder AI"
+git switch feature/local-web-dashboard
+git pull --ff-only origin feature/local-web-dashboard
+cd backend
+./.venv/bin/python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Open `http://127.0.0.1:8000/`.
+
+## Development limitations
+
+Profiles, tokens, evidence and notifications are held in memory and are cleared when the backend restarts. Email requires SMTP configuration. Job application submission, application-material generation, interview coaching, learning plans and persistent application tracking are not implemented in this version.
+
+The dashboard is designed for local development and should not be exposed directly to the public internet.

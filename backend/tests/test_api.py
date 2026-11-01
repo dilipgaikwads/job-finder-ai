@@ -29,6 +29,25 @@ def test_health():
     assert r.json() == {"status": "ok"}
 
 
+def test_homepage_serves_dashboard():
+    client = TestClient(create_app())
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "Job Finder AI" in response.text
+    assert "/static/styles.css" in response.text
+    assert "/static/app.js" in response.text
+
+
+def test_dashboard_static_assets_are_served():
+    client = TestClient(create_app())
+    css = client.get("/static/styles.css")
+    js = client.get("/static/app.js")
+    assert css.status_code == 200
+    assert "app-shell" in css.text
+    assert js.status_code == 200
+    assert "uploadForm" in js.text
+
+
 def test_verify_endpoint_legitimate_posting():
     client = TestClient(create_app())
     r = client.post("/jobs/verify", json=_valid_job_payload())
