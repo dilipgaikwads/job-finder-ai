@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 import io
+import zipfile
 
 from docx import Document
 
-from app.services.resume_parser import parse_resume
+from app.services.resume_parser import (
+    MAX_DOCX_ENTRIES,
+    MAX_DOCX_ENTRY_BYTES,
+    MAX_DOCX_UNCOMPRESSED_BYTES,
+    UnsupportedResumeFormat,
+    parse_resume,
+)
 
 
 def _docx_bytes(text: str) -> bytes:
@@ -53,3 +60,57 @@ def test_parse_rejects_unsupported_format():
     from app.services.resume_parser import UnsupportedResumeFormat
     with pytest.raises(UnsupportedResumeFormat):
         parse_resume("r.rtf", b"x", user_id="u3")
+
+
+
+def _zip_with_entries(entries: list[tuple[str, bytes]]) -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for name, content in entries:
+            archive.writestr(name, content)
+    return buf.getvalue()
+
+
+def test_docx_rejects_oversized_expanded_entry():
+    import pytest
+
+    data = _zip_with_entries([
+        ("[Content_Types].xml", b"<Types/>"),
+        ("word/document.xml", b"x" * (MAX_DOCX_ENTRY_BYTES + 1)),
+    ])
+    with pytest.raises(UnsupportedResumeFormat, match="entry exceeds"):
+        parse_resume("oversized.docx", data, user_id="u4")
+
+
+def test_docx_rejects_excessive_archive_entry_count():
+    import pytest
+
+    entries = [
+        ("[Content_Types].xml", b"<Types/>"),
+        ("word/document.xml", b"<document/>"),
+    ]
+    entries.extend((f"word/extra-{i}.xml", b"x") for i in range(MAX_DOCX_ENTRIES))
+    data = _zip_with_entries(entries)
+    with pytest.raises(UnsupportedResumeFormat, match="too many archive entries"):
+        parse_resume("many-entries.docx", data, user_id="u5")
+
+
+def test_docx_rejects_malformed_zip_package():
+    import pytest
+
+    with pytest.raises(UnsupportedResumeFormat, match="Invalid or unreadable DOCX"):
+        parse_resume("broken.docx", b"not a zip archive", user_id="u6")
+
+
+
+def test_docx_rejects_excessive_total_uncompressed_size():
+    import pytest
+
+    chunk = b"x" * MAX_DOCX_ENTRY_BYTES
+    data = _zip_with_entries([
+        ("[Content_Types].xml", b"<Types/>"),
+        ("word/document.xml", chunk),
+        ("word/styles.xml", chunk),
+    ])
+    with pytest.raises(UnsupportedResumeFormat, match="expands beyond"):
+        parse_resume("expanded.docx", data, user_id="u7")
