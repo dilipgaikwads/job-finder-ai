@@ -52,6 +52,13 @@ _SKILL_VOCAB: tuple[str, ...] = (
 # is ~85k words — far more than any real resume.
 MAX_EXTRACTED_TEXT_BYTES = 512 * 1024
 
+# DOCX is a ZIP container. Bound its expanded contents before python-docx parses
+# XML, because the compressed upload-size limit alone does not prevent ZIP bombs.
+MAX_DOCX_ENTRIES = 256
+MAX_DOCX_UNCOMPRESSED_BYTES = 8 * 1024 * 1024
+MAX_DOCX_ENTRY_BYTES = 4 * 1024 * 1024
+
+
 
 def extract_text(filename: str, data: bytes) -> str:
     """Extract raw text from a resume file. Supports .pdf, .docx, .txt.
