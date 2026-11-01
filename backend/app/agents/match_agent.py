@@ -274,6 +274,10 @@ def _recommend(compat: float, ai: float, gaps: list[str]) -> str:
 
 
 def _mk_ev(ctx: AgentContext, claim: str, status: VerificationStatus) -> str:
+    # `status` is the verification status of the *fact being recorded*, not of
+    # the match dimension's score. All call sites here record deterministic
+    # observations ("N skills matched", "ai_terms_in_posting=…") so they pass
+    # VERIFIED. See docs/EVIDENCE.md for the fact-vs-signal distinction.
     ev = Evidence(
         source_url=None,
         source_type=SourceType.INFERRED_DETERMINISTIC,

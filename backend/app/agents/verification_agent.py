@@ -313,6 +313,11 @@ class VerificationAgent(Agent[VerificationAgentInput, VerificationReport]):
 # ---------- signal builders ----------
 
 def _mk_evidence(store: EvidenceStore, claim: str, status: VerificationStatus) -> str:
+    # `status` is the verification status of the *fact being recorded*, not of
+    # any derived check. For pass/warn/fail outcomes the observation itself
+    # (e.g. "scam phrase matched") is a confirmed deterministic fact, so callers
+    # pass VERIFIED. For inconclusive outcomes the underlying observation could
+    # not be established, so callers pass UNVERIFIED. See docs/EVIDENCE.md.
     ev = Evidence(
         source_url=None,
         source_type=SourceType.INFERRED_DETERMINISTIC,
@@ -334,14 +339,14 @@ def _pass(store: EvidenceStore, name: str, explanation: str, weight: float = 1.0
 def _warn(store: EvidenceStore, name: str, explanation: str, weight: float = 1.0) -> VerificationSignal:
     return VerificationSignal(
         name=name, outcome=SignalOutcome.WARN, weight=weight, explanation=explanation,
-        evidence_ids=[_mk_evidence(store, f"{name}: {explanation}", VerificationStatus.PARTIALLY_VERIFIED)],
+        evidence_ids=[_mk_evidence(store, f"{name}: {explanation}", VerificationStatus.VERIFIED)],
     )
 
 
 def _fail(store: EvidenceStore, name: str, explanation: str, weight: float = 1.0) -> VerificationSignal:
     return VerificationSignal(
         name=name, outcome=SignalOutcome.FAIL, weight=weight, explanation=explanation,
-        evidence_ids=[_mk_evidence(store, f"{name}: {explanation}", VerificationStatus.HIGH_RISK)],
+        evidence_ids=[_mk_evidence(store, f"{name}: {explanation}", VerificationStatus.VERIFIED)],
     )
 
 

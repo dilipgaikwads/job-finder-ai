@@ -33,6 +33,31 @@ class Evidence(BaseModel):
 4. **Conflict surface.** When two evidences disagree, both are retained; `verification_status` becomes `conflicting` and the UI shows both with sources.
 5. **User-supplied ≠ verified.** A user-supplied claim about themselves is trusted for use in *their* materials, but is not automatically labeled `verified` for external contexts (e.g., we do not tell an employer the user has certifications without user confirmation for that specific application).
 6. **Deterministic inferences allowed.** Some evidence is `source_type = "inferred_deterministic"` — e.g., "application domain does not match employer domain" is derived by rule, and the rule + inputs are the evidence.
+7. **Status describes the fact, not the check.** `Evidence.verification_status` describes the verification status of the *fact being recorded*. It must not be used to encode the outcome of a derived check — that belongs on `VerificationSignal.outcome`. See **Three levels of status** below.
+
+## Three levels of status
+
+Three different concepts carry status values. They answer different questions and must not be conflated.
+
+| Field | Enum | Answers |
+|---|---|---|
+| `Evidence.verification_status` | `VerificationStatus` | *Is the underlying fact/observation itself established?* |
+| `VerificationSignal.outcome` | `SignalOutcome` (`pass / warn / fail / inconclusive`) | *Did a specific check pass, warn, fail, or come back inconclusive?* |
+| `VerificationReport.composite_status` | `VerificationStatus` | *Across all signals, what is the overall risk/legitimacy posture of this job?* |
+
+### Consequence: a scam posting has three *different* status values at once
+
+For a posting whose description contains a known scam phrase, the deterministic scam-phrase detector produces:
+
+- `Evidence.verification_status = VERIFIED` — we did observe the phrase; the observation is a confirmed deterministic fact.
+- `VerificationSignal.outcome = FAIL` — the check failed; the job does not pass this signal.
+- `VerificationReport.composite_status = HIGH_RISK` — rolled up with other signals, the posting is high-risk.
+
+A failing check does **not** mean the recorded observation is unverified. Do not confuse an unsuccessful check with an unverified observation.
+
+### The one exception: inconclusive checks
+
+When a check is `INCONCLUSIVE` (e.g., we could not resolve the employer domain), the *underlying observation* could not be established. The Evidence then carries `verification_status = UNVERIFIED`, because the fact itself is not established — only the fact that we were unable to establish it is. Agents must not mark observations VERIFIED when the underlying observation cannot be established.
 
 ## Invariants (property-tested)
 
