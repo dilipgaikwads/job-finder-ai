@@ -91,9 +91,44 @@ def _extract_pdf(data: bytes) -> str:
 
 
 def _extract_docx(data: bytes) -> str:
-    from docx import Document
-    doc = Document(io.BytesIO(data))
-    return "\n".join(p.text for p in doc.paragraphs)
+    """Read a DOCX only after bounding its ZIP expansion metadata.
+
+    DOCX uploads are already capped in compressed form by the API. These
+    independent archive limits constrain the amount of data python-docx can
+    expand and parse from a highly-compressed or structurally abusive package.
+    """
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            infos = archive.infolist()
+            if len(infos) > MAX_DOCX_ENTRIES:
+                raise UnsupportedResumeFormat("DOCX contains too many archive entries.")
+
+            names: set[str] = set()
+            total_uncompressed = 0
+            for info in infos:
+                if info.filename in names:
+                    raise UnsupportedResumeFormat("DOCX contains duplicate archive entries.")
+                names.add(info.filename)
+
+                if info.flag_bits & 0x1:
+                    raise UnsupportedResumeFormat("Encrypted DOCX files are not supported.")
+                if info.file_size < 0 or info.file_size > MAX_DOCX_ENTRY_BYTES:
+                    raise UnsupportedResumeFormat("DOCX archive entry exceeds the allowed size.")
+
+                total_uncompressed += info.file_size
+                if total_uncompressed > MAX_DOCX_UNCOMPRESSED_BYTES:
+                    raise UnsupportedResumeFormat("DOCX expands beyond the allowed size.")
+
+            if "word/document.xml" not in names or "[Content_Types].xml" not in names:
+                raise UnsupportedResumeFormat("Invalid DOCX package.")
+
+        from docx import Document
+        doc = Document(io.BytesIO(data))
+        return "\n".join(p.text for p in doc.paragraphs)
+    except UnsupportedResumeFormat:
+        raise
+    except Exception as exc:  # noqa: BLE001 — malformed ZIP/XML can raise several types
+        raise UnsupportedResumeFormat("Invalid or unreadable DOCX file.") from exc
 
 
 def parse_resume(filename: str, data: bytes, *, user_id: str) -> ParseResult:
