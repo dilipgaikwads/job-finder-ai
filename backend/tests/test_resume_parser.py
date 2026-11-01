@@ -106,7 +106,7 @@ def test_docx_rejects_malformed_zip_package():
 def test_docx_rejects_excessive_total_uncompressed_size():
     import pytest
 
-    chunk = b"x" * (MAX_DOCX_UNCOMPRESSED_BYTES // 2 + 1)
+    chunk = b"x" * MAX_DOCX_ENTRY_BYTES
     data = _zip_with_entries([
         ("[Content_Types].xml", b"<Types/>"),
         ("word/document.xml", chunk),
